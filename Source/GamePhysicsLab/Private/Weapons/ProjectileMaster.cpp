@@ -58,12 +58,5 @@ AProjectileMaster::AProjectileMaster()
 void AProjectileMaster::BeginPlay()
 {
 	Super::BeginPlay();
-	
-    if (SkeletalMesh)
-    {
-        SkeletalMesh->SetSimulatePhysics(false);
-        SkeletalMesh->SetEnableGravity(false);
-        SkeletalMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    }
 }
 

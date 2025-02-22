@@ -80,4 +80,9 @@ protected:
 	bool IsAim;
 
 	bool AxeThrown;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+	bool bUserControllerRotation;
+
+
 };

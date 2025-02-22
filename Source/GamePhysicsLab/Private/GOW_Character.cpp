@@ -80,9 +80,6 @@ AGOW_Character::AGOW_Character()
 	{
 		// 자식 액터 클래스 설정
 		LeviathanAxe->SetChildActorClass(AProjectile_Leviathan::StaticClass());
-		
-		// 이동 규칙 설정
-		LeviathanAxe->SetMobility(EComponentMobility::Movable);
 	}
 }
 
@@ -93,27 +90,27 @@ void AGOW_Character::Move(const FInputActionValue& Value)
 
 	if (Controller != nullptr)
 	{
-		// ī�޶��� ȸ���� ��������
+		// 카메라의 회전값을 가져옴
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
-		// ���� ���Ϳ� ���� ���� ���
+		// 이동 벡터에 따른 방향 계산
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		// �̵� ���⿡ ���� ĳ���� �̵�
+		// 이동 방향에 따라 캐릭터 이동
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 
-		// �̵� ���� ���� ī�޶� �������� ȸ��
+		// 이동 방향으로 캐릭터 회전
 		if (!MovementVector.IsNearlyZero())
 		{
-			// ī�޶� ���� �������� ĳ���� ȸ��
-			FRotator NewRotation = YawRotation;
+			// 이동 방향을 기반으로 회전값 계산
+			FVector MovementDirection = (ForwardDirection * MovementVector.Y + RightDirection * MovementVector.X).GetSafeNormal();
+			FRotator NewRotation = MovementDirection.Rotation();
 			SetActorRotation(NewRotation);
 		}
 	}
-
 }
 
 void AGOW_Character::Look(const FInputActionValue& Value)
@@ -175,4 +172,13 @@ void AGOW_Character::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	//AimTimeline.TickTimeline(DeltaTime);
+
+	// Manage Character Rotation
+	if (GetVelocity().Length() > 1.0f || bUserControllerRotation)
+	{
+		FRotator curActorRotation = GetActorRotation();
+		FRotator tarActorRotation = FRotator(curActorRotation.Pitch, GetControlRotation().Yaw, curActorRotation.Roll);
+
+		SetActorRotation(FMath::RInterpTo(curActorRotation, tarActorRotation, DeltaTime, 50.0f));
+	}
 }
