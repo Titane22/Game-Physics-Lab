@@ -65,7 +65,7 @@ protected:
 			
 	void Aim(const FInputActionValue& Value);
 
-	void ThrowAxe();
+	virtual void ThrowAxe();
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;

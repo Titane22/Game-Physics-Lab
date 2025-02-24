@@ -35,7 +35,7 @@ AGOW_Character::AGOW_Character()
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 0.0f, 540.0f);  // Rotation speed
 	GetCharacterMovement()->JumpZVelocity = 400.f;               // Jump strength
 	GetCharacterMovement()->AirControl = 0.35f;                  // Air control
-	GetCharacterMovement()->MaxWalkSpeed = 420.f;                // Maximum movement speed
+	GetCharacterMovement()->MaxWalkSpeed = 500.f;                // Maximum movement speed
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;           // Minimum movement speed
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f; // Deceleration when stopping
 	GetCharacterMovement()->MaxAcceleration = 1000.0f;           // Maximum acceleration
@@ -49,9 +49,9 @@ AGOW_Character::AGOW_Character()
 	GetCharacterMovement()->NavAgentProps.NavWalkingSearchHeightScale = 0.5f;  // Path search height scale
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
-	CameraBoom->TargetArmLength = 350.0f;                        // Camera distance
+	CameraBoom->TargetArmLength = 300.0f;                        // Camera distance
 	CameraBoom->bUsePawnControlRotation = true;                  // Controller-based rotation
-	CameraBoom->SocketOffset = FVector(0.0f, 80.0f, 40.0f);      // Socket offset
+	CameraBoom->SocketOffset = FVector(10.0f, 95.0f, 20.0f);      // Socket offset
 	CameraBoom->bInheritRoll = false;                           // Disable roll rotation inheritance
 	CameraBoom->bEnableCameraLag = true;                        // Enable camera lag effect
 	CameraBoom->bEnableCameraRotationLag = true;                // Enable camera rotation lag
@@ -129,10 +129,50 @@ void AGOW_Character::Look(const FInputActionValue& Value)
 
 void AGOW_Character::Aim(const FInputActionValue& Value)
 {
+	IsAim = Value.Get<bool>();
+
+	if (IsAim)
+	{
+		
+	}
+	else
+	{
+		
+	}
 }
 
 void AGOW_Character::ThrowAxe()
 {
+	if (!IsAim || !LeviathanAxeRef)
+		return;
+
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		UAnimMontage* ThrowMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), nullptr, TEXT("/Game/Character/Animation/Axe/M_ThrowAxe")));
+
+		AnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &AGOW_Character::OnNotifyBegin);
+		AnimInstance->OnPlayMontageNotifyEnd.AddDynamic(this, &AGOW_Character::OnNotifyEnd);
+
+		AnimInstance->Montage_Play(ThrowMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.037f);
+	}
+}
+
+void AGOW_Character::OnNotifyBegin(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload)
+{
+	// TODO: SpawnSoundAttached
+}
+
+void AGOW_Character::OnNotifyEnd(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload)
+{
+	LeviathanAxeRef->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+
+	FRotator cameraRotation = FollowCamera->GetComponentRotation();
+	FVector throwDirectionVector = FollowCamera->GetForwardVector();
+	FVector cameraLocation = FollowCamera->GetComponentLocation();
+
+	LeviathanAxeRef->Throw(cameraRotation, throwDirectionVector, cameraLocation);
+
+	AxeThrown = true;
 }
 
 void AGOW_Character::BeginPlay()
@@ -180,5 +220,17 @@ void AGOW_Character::Tick(float DeltaTime)
 		FRotator tarActorRotation = FRotator(curActorRotation.Pitch, GetControlRotation().Yaw, curActorRotation.Roll);
 
 		SetActorRotation(FMath::RInterpTo(curActorRotation, tarActorRotation, DeltaTime, 50.0f));
+	}
+}
+
+void AGOW_Character::LerpCameraPosition(float Value)
+{
+	if (CameraBoom)
+	{
+		CameraBoom->TargetArmLength = FMath::Lerp(SpringArmLengthIdle, SpringArmLengthAim, Value);
+
+		CameraBoom->SocketOffset = FMath::Lerp(CameraVector, RangedCameraVector, Value);
+
+		DesiredSocketOffset = FMath::Lerp(CameraVector, RangedCameraVector, Value);
 	}
 }

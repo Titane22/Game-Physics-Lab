@@ -42,7 +42,48 @@ protected:
 
 	float AxeSpinAxisOffset = 0.0f;
 
+	float AxeSpinRate = 2.5f;
+
+	float AxeThrowTraceDistance = 60.0f;
+
 	EAxeState AxeState = EAxeState::Idle;
+
+	void StartAxeRotForward();
+
+	void StopAxeRotation();
+
+	void StopAxeMoving();
+	// 타임라인 컴포넌트
+	UPROPERTY()
+	class UTimelineComponent* AxeRotTimeline;
+
+	UPROPERTY()
+	class UTimelineComponent* AxeThrowTraceTimeline;
+
+	UPROPERTY(EditAnywhere, Category = "Axe")
+	class UCurveFloat* AxeRotCurve;
+
+	UPROPERTY(EditAnywhere, Category = "Axe")
+	class UCurveFloat* AxeSoundCurve;
+
+	UPROPERTY(EditAnywhere, Category = "Axe")
+	class UCurveFloat* AxeTraceCurve;
+	
+	UFUNCTION()
+	void UpdateAxeRotation(float Value);
+
+	UFUNCTION()
+	void UpdateAxeAudioFlipFlop(float Value);
+
+	UFUNCTION()
+	void UpdateAxeThrowTrace(float Value);
+
+	UFUNCTION()
+	void StopAxeThrowTraceTimeline();
+
+	UFUNCTION()
+	void OnAxeThrowFinished();
+
 public:
 	void Throw(FRotator CameraRotation, FVector ThrowDirectionVector, FVector CameraLocation);
 
