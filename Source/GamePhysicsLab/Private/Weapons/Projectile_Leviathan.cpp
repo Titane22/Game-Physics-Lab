@@ -86,6 +86,18 @@ void AProjectile_Leviathan::UpdateAxeThrowTrace(float Value)
 {
     ProjectileMovement->ProjectileGravityScale = Value;
 
+    // 현재 위치와 속도 디버그 출력
+    FVector CurrentLocation = GetActorLocation();
+    FVector CurrentVelocity = GetVelocity();
+    
+    GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Green, 
+        FString::Printf(TEXT("Location: X=%.2f Y=%.2f Z=%.2f"), 
+        CurrentLocation.X, CurrentLocation.Y, CurrentLocation.Z));
+    
+    GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, 
+        FString::Printf(TEXT("Velocity: X=%.2f Y=%.2f Z=%.2f"), 
+        CurrentVelocity.X, CurrentVelocity.Y, CurrentVelocity.Z));
+
     // 도끼의 현재 속도 벡터를 정규화하고 투척 거리만큼 확장
     FVector throwDirection = GetVelocity().GetSafeNormal(0.0001f); 
     FVector traceOffset = throwDirection * AxeThrowTraceDistance;
@@ -142,7 +154,7 @@ void AProjectile_Leviathan::StartAxeRotForward()
 {
     if (AxeRotTimeline)
     {
-        ProjectileMovement->SetComponentTickEnabled(true);
+        //ProjectileMovement->SetComponentTickEnabled(true);
         AxeRotTimeline->PlayFromStart();
     }
 }
@@ -151,7 +163,7 @@ void AProjectile_Leviathan::StopAxeRotation()
 {
     if (AxeRotTimeline)
     {
-        ProjectileMovement->SetComponentTickEnabled(false);
+        //ProjectileMovement->SetComponentTickEnabled(false);
         AxeRotTimeline->Stop();
     }
 }
@@ -173,17 +185,18 @@ void AProjectile_Leviathan::Throw(FRotator CameraRotation, FVector ThrowDirectio
     FRotator startRotation = FRotator(CameraStartRotation.Pitch, CameraStartRotation.Yaw, CameraStartRotation.Roll + AxeSpinAxisOffset);
     SnapAxeToStartPosition(startRotation, ThrowDirection, CameraLocationAtThrow);
 
-    // Launch Axe
-    ProjectileMovement->Velocity = ThrowDirection * AxeThrowSpeed;
-    ProjectileMovement->Activate();
-    GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Yellow, FString::Printf(TEXT("ProjectileMovement->Velocity: %s"), *ProjectileMovement->Velocity.ToString()));
-
     StartAxeRotForward();
 
     AxeState = EAxeState::Launched;
     // TODO: BeginTrails
-
-    ProjectileMovement->ProjectileGravityScale = 0.0f;
+    if (ProjectileMovement)
+    {
+        /// 2025/02/25 - ProjectileMovement Activating
+        ProjectileMovement->Velocity = ThrowDirectionVector * AxeThrowSpeed;
+        ProjectileMovement->bSimulationEnabled = true;
+        ///
+        ProjectileMovement->ProjectileGravityScale = 0.0f;
+    }
 
     if (!AxeThrowTraceTimeline)
     {
@@ -191,7 +204,6 @@ void AProjectile_Leviathan::Throw(FRotator CameraRotation, FVector ThrowDirectio
         return;
     }
     AxeThrowTraceTimeline->PlayFromStart();
-    GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Green, TEXT("AxeThrowTraceTimeline Is Valid"));
 }
 
 void AProjectile_Leviathan::SnapAxeToStartPosition(FRotator StartRotation, FVector ThrowDirectionVector, FVector CameraLocation)
