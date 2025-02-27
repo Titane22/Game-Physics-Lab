@@ -15,8 +15,9 @@ enum class EAxeState : uint8
 	Returning				UMETA(DisplayName = "Returning")
 };
 
+class AGOW_Character;
 class UProjectileMovementComponent;
-
+class AEnemyBase;
 /**
  * 
  */
@@ -38,6 +39,16 @@ protected:
 
 	FVector CameraLocationAtThrow;
 
+	FVector ImpactLocation;
+
+	FVector ImpactNormal;
+
+	FName HitBoneName;
+
+	float ZAdjustment;
+
+	EPhysicalSurface SurfaceType;
+
 	float AxeThrowSpeed = 2500.0f;
 
 	float AxeSpinAxisOffset = 0.0f;
@@ -46,19 +57,42 @@ protected:
 
 	float AxeThrowTraceDistance = 60.0f;
 
+	float ImpulseStrength = 20000.0f;
+
+	float MaxCalculationDistance = 3000.0f;
+
+	float DistanceFromChar;
+
+	FRotator LodgePointBaseRotation;
+
 	EAxeState AxeState = EAxeState::Idle;
+
+	AEnemyBase* HitAIRef;
+
+	AGOW_Character* CharacterRef;
 
 	void StartAxeRotForward();
 
 	void StopAxeRotation();
 
 	void StopAxeMoving();
+
+	void LodgeAxe();
+
+	void Recall();
+
+	void AxeLodgeWiggle();
+
+	void ReturnAxe();
 	// 타임라인 컴포넌트
 	UPROPERTY()
 	class UTimelineComponent* AxeRotTimeline;
 
 	UPROPERTY()
 	class UTimelineComponent* AxeThrowTraceTimeline;
+
+	UPROPERTY()
+	class UTimelineComponent* WiggleTimeline;
 
 	UPROPERTY(EditAnywhere, Category = "Axe")
 	class UCurveFloat* AxeRotCurve;
@@ -68,6 +102,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Axe")
 	class UCurveFloat* AxeTraceCurve;
+
+	UPROPERTY(EditAnywhere, Category = "Axe")
+	class UCurveFloat* WiggleCurve;
 	
 	UFUNCTION()
 	void UpdateAxeRotation(float Value);
@@ -83,6 +120,12 @@ protected:
 
 	UFUNCTION()
 	void OnAxeThrowFinished();
+
+	UFUNCTION()
+	void UpdateAxeWiggle(float Value);
+
+	UFUNCTION()
+	void OnAxeWiggleFinished();
 
 public:
 	void Throw(FRotator CameraRotation, FVector ThrowDirectionVector, FVector CameraLocation);

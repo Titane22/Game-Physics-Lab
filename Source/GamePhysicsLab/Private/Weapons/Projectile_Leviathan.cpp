@@ -5,6 +5,10 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Weapons/ProjectileMaster.h"
 #include "Components/TimelineComponent.h"
+#include "Actors/DestructiblesMaster.h"
+#include "GOW_Character.h"
+#include "Enemy/EnemyBase.h"
+#include "Kismet/KismetMathLibrary.h"
 
 AProjectile_Leviathan::AProjectile_Leviathan() 
     : Super()
@@ -21,12 +25,18 @@ AProjectile_Leviathan::AProjectile_Leviathan()
 
     AxeRotTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("AxeRotTimeline"));
     AxeThrowTraceTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("AxeThrowTraceTimeline"));
+    WiggleTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("WiggleTimeline"));
 }
 
 void AProjectile_Leviathan::BeginPlay()
 {
     Super::BeginPlay();  // 부모 클래스의 BeginPlay 호출 (중요!)
     
+    if (AGOW_Character* PC = Cast<AGOW_Character>(GetWorld()->GetFirstPlayerController()->GetPawn()))
+    {
+        CharacterRef = PC;
+    }
+
     // 추가적인 중력/물리 비활성화 설정
     if (ProjectileMovement)
     {
@@ -60,6 +70,19 @@ void AProjectile_Leviathan::BeginPlay()
         FOnTimelineEvent FinishCallBack;
         FinishCallBack.BindUFunction(this, FName("OnAxeThrowFinished"));
         AxeThrowTraceTimeline->SetTimelineFinishedFunc(FinishCallBack);
+    }
+
+    if (WiggleTimeline && WiggleCurve)
+    {
+        WiggleTimeline->SetTimelineLength(0.6f);
+
+        FOnTimelineFloat WiggleCallback;
+        WiggleCallback.BindUFunction(this, FName("UpdateAxeWiggle"));
+        WiggleTimeline->AddInterpFloat(WiggleCurve, WiggleCallback);
+
+        FOnTimelineEvent FinishCallback;
+        FinishCallback.BindUFunction(this, FName("OnAxeWiggleFinished"));
+        WiggleTimeline->SetTimelineFinishedFunc(FinishCallback);
     }
 }
 
@@ -115,7 +138,7 @@ void AProjectile_Leviathan::UpdateAxeThrowTrace(float Value)
         HitResult,
         startLocation,
         endLocation,
-        ECollisionChannel::ECC_Visibility,
+        ECollisionChannel::ECC_Pawn,
         QueryParams
     );
     //GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Yellow, FString::Printf(TEXT("startLocation: %s, endLocation: %s"), *startLocation.ToString(), *endLocation.ToString()));
@@ -136,6 +159,54 @@ void AProjectile_Leviathan::UpdateAxeThrowTrace(float Value)
         false,
         DrawTime
     );
+
+    if (bHit)
+    {
+        ImpactLocation = HitResult.ImpactPoint;
+        ImpactNormal = HitResult.ImpactNormal;
+        HitBoneName = HitResult.BoneName;
+        if (HitResult.PhysMaterial != nullptr)
+        {
+            SurfaceType = HitResult.PhysMaterial->SurfaceType;
+        }
+
+        if (ADestructiblesMaster* DestructiblesMaster = Cast<ADestructiblesMaster>(HitResult.PhysMaterial))
+        {
+            DestructiblesMaster->BreakObject(ImpactLocation, ThrowDirection);
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, FString::Printf(TEXT("Actor: %s"), *HitResult.GetActor()->GetName()));
+            // TODO: EndTrails
+            StopAxeThrowTraceTimeline();
+            ProjectileMovement->Deactivate();
+            if (AEnemyBase* EnemyBase = Cast<AEnemyBase>(HitResult.GetActor()))
+            {
+                HitAIRef = EnemyBase;
+                LodgeAxe();
+
+                // 이미지의 노드 구현: 타겟 액터 위치 가져오기 및 정규화
+                FVector targetLocation = HitAIRef->GetActorLocation();
+                FVector directionVector = targetLocation - CameraLocationAtThrow;
+                FVector normalizedDirection = directionVector.GetSafeNormal(0.0001f); // TODO: Need to Modify Direction
+                FVector impactVector = normalizedDirection * ImpulseStrength;
+
+                HitAIRef->ReceiveHit(true, HitBoneName, impactVector);
+                FAttachmentTransformRules attachRules(EAttachmentRule::KeepWorld, EAttachmentRule::KeepWorld, EAttachmentRule::KeepWorld, false);
+
+                attachRules.bWeldSimulatedBodies = true;
+                this->AttachToComponent(HitAIRef->GetMesh(), attachRules, HitBoneName);
+
+                // TODO: VFX
+            }
+            else
+            {
+                // TODO: Spawn Sound
+
+                LodgeAxe();
+            }
+        }
+    }
 }
 
 void AProjectile_Leviathan::StopAxeThrowTraceTimeline()
@@ -148,6 +219,19 @@ void AProjectile_Leviathan::OnAxeThrowFinished()
     StopAxeMoving();
 
     //SkeletalMesh->SetVisibility(false);
+}
+
+void AProjectile_Leviathan::UpdateAxeWiggle(float Value)
+{
+    float roll = Value * 12.0f + LodgePointBaseRotation.Roll;
+
+    LodgePoint->SetRelativeRotation(FRotator(LodgePointBaseRotation.Pitch, LodgePointBaseRotation.Yaw, roll));
+}
+
+void AProjectile_Leviathan::OnAxeWiggleFinished()
+{
+    // TODO: Begin Trail
+    ReturnAxe();
 }
 
 void AProjectile_Leviathan::StartAxeRotForward()
@@ -175,8 +259,93 @@ void AProjectile_Leviathan::StopAxeMoving()
     StopAxeRotation();
 }
 
+void AProjectile_Leviathan::LodgeAxe()
+{
+    StopAxeMoving();
+    PivotPoint->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
+
+    SetActorRotation(CameraStartRotation);
+
+    float inclinedSurfaceRange = FMath::FRandRange(-30.0f, -55.0f);
+    float regularSurfaceRange = FMath::FRandRange(-5.0f, -25.0f);
+    FRotator rotationFromAxes = UKismetMathLibrary::MakeRotationFromAxes(
+        ImpactNormal,
+        FVector(0.0f, 0.0f, 0.0f),
+        FVector(0.0f, 0.0f, 0.0f)
+    );
+    float pitch = 0.0f;
+    if (rotationFromAxes.Pitch > 0.0f)
+    {
+        pitch = regularSurfaceRange - rotationFromAxes.Pitch;
+    }
+    else
+    {
+        pitch = inclinedSurfaceRange - rotationFromAxes.Pitch;
+    }
+
+    float roll = FMath::FRandRange(-3.0f, 3.0f);
+    LodgePoint->SetRelativeRotation(FRotator(roll, pitch, 0.0f));
+
+    pitch = 0.0f;
+    if (rotationFromAxes.Pitch > 0.0f)
+    {
+        pitch = rotationFromAxes.Pitch;
+    }
+
+    ZAdjustment = (90.0f - pitch) / 90.0f * 10.0f;
+
+    FVector targetLocation = ImpactLocation + FVector(0.0f, 0.0f, ZAdjustment);
+    FVector locationOffset = GetActorLocation() - LodgePoint->GetComponentLocation();
+    FVector newLocation = targetLocation + locationOffset;
+
+    SetActorLocation(newLocation);
+    AxeState = EAxeState::LodgedInSomething;
+}
+
+void AProjectile_Leviathan::Recall()
+{
+    StopAxeThrowTraceTimeline();
+
+    SkeletalMesh->SetVisibility(true);
+
+    // TODO: Audio
+
+    switch (AxeState)
+    {
+    case EAxeState::Launched:
+        ZAdjustment = 10.0f;
+        ReturnAxe();
+        break;
+    case EAxeState::LodgedInSomething:
+        // TODO: AxeLodgePull
+        
+        break;
+    }
+}
+
+void AProjectile_Leviathan::AxeLodgeWiggle()
+{
+    LodgePointBaseRotation = LodgePoint->GetRelativeRotation();
+
+    
+}
+
+void AProjectile_Leviathan::ReturnAxe()
+{
+    AxeState = EAxeState::Returning;
+    
+    // 도끼의 현재 위치에서 캐릭터의 도끼 소켓 위치까지의 벡터를 계산
+    FVector DirectionToCharacter = GetActorLocation() - CharacterRef->GetMesh()->GetSocketLocation(FName("AxeSocket"));
+
+    DistanceFromChar = FMath::Clamp(DirectionToCharacter.Length(), 0.0f, MaxCalculationDistance);
+    // TODO: AdjustAxeReturnLocation();
+}
+
 void AProjectile_Leviathan::Throw(FRotator CameraRotation, FVector ThrowDirectionVector, FVector CameraLocation)
 {
+    if (!ProjectileMovement)
+        return;
+
     CameraStartRotation = CameraRotation;
     ThrowDirection = ThrowDirectionVector;
     CameraLocationAtThrow = CameraLocation;
@@ -185,18 +354,17 @@ void AProjectile_Leviathan::Throw(FRotator CameraRotation, FVector ThrowDirectio
     FRotator startRotation = FRotator(CameraStartRotation.Pitch, CameraStartRotation.Yaw, CameraStartRotation.Roll + AxeSpinAxisOffset);
     SnapAxeToStartPosition(startRotation, ThrowDirection, CameraLocationAtThrow);
 
+    ProjectileMovement->Activate();
+
     StartAxeRotForward();
 
     AxeState = EAxeState::Launched;
     // TODO: BeginTrails
-    if (ProjectileMovement)
-    {
-        /// 2025/02/25 - ProjectileMovement Activating
-        ProjectileMovement->Velocity = ThrowDirectionVector * AxeThrowSpeed;
-        ProjectileMovement->bSimulationEnabled = true;
-        ///
-        ProjectileMovement->ProjectileGravityScale = 0.0f;
-    }
+    /// 2025/02/25 - ProjectileMovement Activating
+    ProjectileMovement->Velocity = ThrowDirectionVector * AxeThrowSpeed;
+    ProjectileMovement->bSimulationEnabled = true;
+    ///
+    ProjectileMovement->ProjectileGravityScale = 0.0f;
 
     if (!AxeThrowTraceTimeline)
     {
