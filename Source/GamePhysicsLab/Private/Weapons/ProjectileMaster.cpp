@@ -17,19 +17,6 @@ AProjectileMaster::AProjectileMaster()
     LodgePoint->SetupAttachment(PivotPoint);
     SkeletalMesh->SetupAttachment(LodgePoint);
 
-    if (PivotPoint)
-    {
-        PivotPoint->SetRelativeLocation(FVector(4.332825f, 0.0f, 19.522278f));
-        PivotPoint->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
-        PivotPoint->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
-    }
-
-    if (LodgePoint)
-    {
-        LodgePoint->SetRelativeLocation(FVector(12.813232f, 0.0f, 36.75943f));
-        LodgePoint->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
-        LodgePoint->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
-    }
 
     static ConstructorHelpers::FObjectFinder<USkeletalMesh> AxeMesh(TEXT("/Game/Character/Weapons/Leviathon/Mesh/Leviathon_Axe.Leviathon_Axe"));
     if (AxeMesh.Succeeded() && SkeletalMesh)

@@ -38,10 +38,22 @@ public:
 	FVector TargetArmLengths;
 
 	UPROPERTY()
-	FTimeline AimTimeline;
+	UTimelineComponent* AimTimeline;
+
+	UPROPERTY()
+	UTimelineComponent* DesiredSocketTimeline;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Timeline")
 	class UCurveFloat* AimCurve;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Timeline")
+	class UCurveFloat* DesiredSocketCurve;
+
+	UFUNCTION()
+	void UpdateAim(float Value);
+
+	UFUNCTION()
+	void UpdateDesiredSocket(float Value);
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapons", meta = (AllowPrivateAccess = "true"))
 	UChildActorComponent* LeviathanAxe;
@@ -60,12 +72,20 @@ protected:
 
 	virtual void ThrowAxe();
 
+	virtual void ReturnAxe();
+
 	UFUNCTION()
 	void OnNotifyBegin(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload);
 
 	UFUNCTION()
 	void OnNotifyEnd(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload);
-protected:
+
+	UFUNCTION()
+	void OnCatchNotifyBegin(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload);
+
+	UFUNCTION()
+	void OnCatchNotifyEnd(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload);
+
 	// To add mapping context
 	virtual void BeginPlay();
 
@@ -81,6 +101,10 @@ protected:
 
 	bool AxeThrown;
 	
+	bool AxeRecalling;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound")
+	USoundBase* ThrowEffortSound;
 
 	// 타임라인 업데이트 함수
 	UFUNCTION(BlueprintCallable)
@@ -101,8 +125,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera", meta = (AllowPrivateAccess = "true"))
 	FVector DesiredSocketOffset;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UCameraShakeBase> ShakeClass;
 public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
 	bool bUserControllerRotation;
+
+	void Catch();
 };

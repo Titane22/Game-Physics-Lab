@@ -89,6 +89,7 @@ void AGamePhysicsLabCharacter::SetupPlayerInputComponent(UInputComponent* Player
 
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &AGamePhysicsLabCharacter::Aim);
 		EnhancedInputComponent->BindAction(ThrowAction, ETriggerEvent::Triggered, this, &AGamePhysicsLabCharacter::ThrowAxe);
+		EnhancedInputComponent->BindAction(ReturnAxeAction, ETriggerEvent::Triggered, this, &AGamePhysicsLabCharacter::ReturnAxe);
 	}
 	else
 	{
@@ -137,5 +138,9 @@ void AGamePhysicsLabCharacter::Aim(const FInputActionValue& Value)
 }
 
 void AGamePhysicsLabCharacter::ThrowAxe()
+{
+}
+
+void AGamePhysicsLabCharacter::ReturnAxe()
 {
 }

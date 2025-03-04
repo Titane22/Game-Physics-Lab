@@ -15,6 +15,7 @@
 #include "Curves/CurveFloat.h"
 #include "Weapons/Projectile_Leviathan.h"
 #include "Kismet/GameplayStatics.h"
+#include "Camera/CameraShakeBase.h"
 
 AGOW_Character::AGOW_Character()
 {
@@ -72,6 +73,9 @@ AGOW_Character::AGOW_Character()
 	AxeCapsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Axe Capsule"));
 	AxeCapsule->SetupAttachment(LeviathanAxe);
 
+	AimTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("AimTimeline"));
+	DesiredSocketTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("DesiredSocketTimeline"));
+
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 
@@ -81,6 +85,28 @@ AGOW_Character::AGOW_Character()
 		// 자식 액터 클래스 설정
 		LeviathanAxe->SetChildActorClass(AProjectile_Leviathan::StaticClass());
 	}
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> ThrowEffortSoundAsset(TEXT("/Game/Audio/Leviathon/Effort/Effort_Cue"));
+	if (ThrowEffortSoundAsset.Succeeded())
+	{
+		ThrowEffortSound = ThrowEffortSoundAsset.Object;
+	}
+}
+
+void AGOW_Character::UpdateAim(float Value)
+{
+}
+
+void AGOW_Character::UpdateDesiredSocket(float Value)
+{
+	float newOffsetX = Value * 0.5f * 12.0f;
+	float newOffsetY = Value * 0.5f * 4.0f;
+	float newOffsetZ = Value * 0.5f * 3.0f;
+	CameraBoom->SocketOffset = FVector(
+		DesiredSocketOffset.X - newOffsetX,
+		DesiredSocketOffset.Y - newOffsetY,
+		DesiredSocketOffset.Z - newOffsetZ
+	);
 }
 
 void AGOW_Character::Move(const FInputActionValue& Value)
@@ -143,27 +169,52 @@ void AGOW_Character::Aim(const FInputActionValue& Value)
 
 void AGOW_Character::ThrowAxe()
 {
-	if (!IsAim || !LeviathanAxeRef)
+	if (!IsAim || !LeviathanAxeRef || AxeThrown)
 		return;
-
+	
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
+		AxeThrown = true;
+
 		UAnimMontage* ThrowMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), nullptr, TEXT("/Game/Character/Animation/Axe/M_ThrowAxe")));
-
-		AnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &AGOW_Character::OnNotifyBegin);
-		AnimInstance->OnPlayMontageNotifyEnd.AddDynamic(this, &AGOW_Character::OnNotifyEnd);
-
+		
 		AnimInstance->Montage_Play(ThrowMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.037f);
+	}
+}
+
+void AGOW_Character::ReturnAxe()
+{
+	if (!LeviathanAxeRef)
+		return;
+	if (!AxeThrown || AxeRecalling)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Can't Return Axe"));
+		return;
+	}
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		UAnimMontage* RecallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), nullptr, TEXT("/Game/Character/Animation/Axe/RecallAxe_Montage")));
+		AxeRecalling = true;
+		AnimInstance->Montage_Play(RecallMontage, 1.1f, EMontagePlayReturnType::MontageLength, 0.037f);
+		LeviathanAxeRef->Recall();
 	}
 }
 
 void AGOW_Character::OnNotifyBegin(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload)
 {
-	// TODO: SpawnSoundAttached
+	if (NotifyName != FName("Throw"))
+		return;
+
+	UGameplayStatics::SpawnSoundAttached(
+		ThrowEffortSound,
+		GetMesh()
+	);
 }
 
 void AGOW_Character::OnNotifyEnd(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload)
 {
+	if (NotifyName != FName("Throw"))
+		return;
 	LeviathanAxeRef->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
 	FRotator cameraRotation = FollowCamera->GetComponentRotation();
@@ -172,7 +223,6 @@ void AGOW_Character::OnNotifyEnd(FName NotifyName, const FBranchingPointNotifyPa
 
 	LeviathanAxeRef->Throw(cameraRotation, throwDirectionVector, cameraLocation);
 
-	AxeThrown = true;
 }
 
 void AGOW_Character::BeginPlay()
@@ -180,17 +230,33 @@ void AGOW_Character::BeginPlay()
 	// Call the base class  
 	Super::BeginPlay();
 
-	if (AimCurve)
+	if (AimTimeline && AimCurve)
 	{
 		FOnTimelineFloat TimelineCallback;
-		TimelineCallback.BindUFunction(this, FName("UpdateAimView"));
-		AimTimeline.AddInterpFloat(AimCurve, TimelineCallback);
-		AimTimeline.SetPlayRate(4.0f);
+		TimelineCallback.BindUFunction(this, FName("UpdateAim"));
+		AimTimeline->AddInterpFloat(AimCurve, TimelineCallback);
+	}
+
+	if (DesiredSocketTimeline && DesiredSocketCurve)
+	{
+		FOnTimelineFloat CurveFloatCallback;
+		CurveFloatCallback.BindUFunction(this, FName("UpdateDesiredSocket"));
+		DesiredSocketTimeline->AddInterpFloat(DesiredSocketCurve, CurveFloatCallback);
 	}
 
 	if (AProjectile_Leviathan* PJ_Axe = Cast<AProjectile_Leviathan>(LeviathanAxe->GetChildActor()))
 	{
 		LeviathanAxeRef = PJ_Axe;
+	}
+
+	ShakeClass = LoadClass<UCameraShakeBase>(nullptr, TEXT(""));
+	if (ShakeClass)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, TEXT("ShakeClass is Valid"));
+	}
+	else
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, TEXT("ShakeClass is Null"));
 	}
 
 	GetMesh()->HideBoneByName(FName("hips_cloth_main_l"), EPhysBodyOp::PBO_None);
@@ -204,6 +270,22 @@ void AGOW_Character::BeginPlay()
 			WeaponMesh->SetSimulatePhysics(false);
 			WeaponMesh->SetEnableGravity(false);
 		}
+	}
+
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		AnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &AGOW_Character::OnNotifyBegin);
+		AnimInstance->OnPlayMontageNotifyEnd.AddDynamic(this, &AGOW_Character::OnNotifyEnd);
+
+		AnimInstance->OnPlayMontageNotifyBegin.AddDynamic(
+			this,
+			&AGOW_Character::OnCatchNotifyBegin
+		);
+
+		AnimInstance->OnPlayMontageNotifyEnd.AddDynamic(
+			this,
+			&AGOW_Character::OnCatchNotifyEnd
+		);
 	}
 }
 
@@ -232,5 +314,70 @@ void AGOW_Character::LerpCameraPosition(float Value)
 		CameraBoom->SocketOffset = FMath::Lerp(CameraVector, RangedCameraVector, Value);
 
 		DesiredSocketOffset = FMath::Lerp(CameraVector, RangedCameraVector, Value);
+	}
+}
+
+void AGOW_Character::Catch()
+{
+	if(UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		UAnimMontage* AnimMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), nullptr, TEXT("/Game/Character/Animation/Axe/AxeCatchMontage1")));
+
+		AnimInstance->Montage_Play(
+			AnimMontage,
+			1.0f,
+			EMontagePlayReturnType::MontageLength,
+			0.1f
+		);
+
+		LeviathanAxeRef->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetIncludingScale,
+			FName("RightHandWeaponBoneSocket")
+		);
+		AxeThrown = false;
+		AxeRecalling = false;
+
+		LeviathanAxeRef->SetAxeState(0);
+
+		if (!AimTimeline->IsPlaying()) 
+		{
+			if (APlayerCameraManager* CameraManager = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0))
+			{
+				if (CameraManager && ShakeClass)
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Camera Shake"));
+					CameraManager->StartCameraShake(ShakeClass);
+					DesiredSocketTimeline->SetPlayRate(0.7f);
+					DesiredSocketTimeline->PlayFromStart();
+				}
+			}
+		}
+	}
+}
+
+void AGOW_Character::OnCatchNotifyBegin(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload)
+{
+	if (NotifyName != FName("Catch"))
+		return;
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		AnimInstance->Montage_SetPlayRate(
+			AnimInstance->GetCurrentActiveMontage(),
+			0.4f
+		);
+	}
+}
+
+void AGOW_Character::OnCatchNotifyEnd(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload)
+{
+	if (NotifyName != FName("Catch"))
+		return;
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		AnimInstance->Montage_SetPlayRate(
+			AnimInstance->GetCurrentActiveMontage(),
+			1.0f
+		);
 	}
 }
