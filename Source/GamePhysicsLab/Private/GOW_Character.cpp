@@ -249,7 +249,7 @@ void AGOW_Character::BeginPlay()
 		LeviathanAxeRef = PJ_Axe;
 	}
 
-	ShakeClass = LoadClass<UCameraShakeBase>(nullptr, TEXT(""));
+	ShakeClass = LoadClass<UCameraShakeBase>(nullptr, TEXT("/Game/Character/CameraShake_Roll.CameraShake_Roll_C"));
 	if (ShakeClass)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, TEXT("ShakeClass is Valid"));

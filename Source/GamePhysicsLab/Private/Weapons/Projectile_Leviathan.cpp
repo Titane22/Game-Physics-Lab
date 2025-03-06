@@ -349,7 +349,6 @@ void AProjectile_Leviathan::UpdateAxeThrowTrace(float Value)
 
 void AProjectile_Leviathan::StopAxeThrowTraceTimeline()
 {
-    GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, TEXT("StopAxeThrowTraceTimeline()"));
     AxeThrowTraceTimeline->Stop();
 }
 
@@ -643,35 +642,44 @@ void AProjectile_Leviathan::ReturnAxe()
     /// 
     /// start of Return Spin and return audio
     float timelineLength = 1.0f / newRate;
+    
     FTimerHandle TimeHandle;
-    GetWorldTimerManager().SetTimer(
-        TimeHandle,
-        [this, timelineLength]() {
-            if (timelineLength - 0.87f > 0.0f)
-            {
+    if (timelineLength - 0.87f > 0.0f)
+    {
+        GetWorldTimerManager().SetTimer(
+            TimeHandle,
+            [this, timelineLength]() {
+                GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, TEXT("timelineLength - 0.87f > 0.0f"));
                 UGameplayStatics::SpawnSoundAttached(
                     ReturnNoBrownNoiseSound,
                     SkeletalMesh
                 );
-            }
-            else
-            {
-                UGameplayStatics::SpawnSoundAttached(
-                    ReturnNoBrownNoiseSound,            // 사운드
-                    SkeletalMesh,                       // 부착할 컴포넌트
-                    NAME_None,                          // 소켓 이름 (기본값)
-                    FVector::ZeroVector,                // 위치 (기본값)
-                    FRotator::ZeroRotator,              // 회전 (기본값)
-                    EAttachLocation::KeepRelativeOffset, // 부착 규칙 (기본값)
-                    true,                               // 자동 파괴 (기본값)
-                    1.0f,                               // 볼륨 (기본값)
-                    0.87f - timelineLength              // 시작 시간 (지정)
-                );
-            }
-        },
-        timelineLength - 0.87f, // TODO: Modify for Catch Sound
-        false
-    );
+            },
+            timelineLength - 0.87f,
+            false
+        );
+    }
+    else
+    {
+        float startTimeLength = 0.87f - timelineLength;
+        
+        //GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, TEXT("timelineLength - 0.87f <= 0.0f"));
+        GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, FString::Printf(TEXT(" 0.87f - timelineLength: %lf"), 0.87f - timelineLength));
+        if (UAudioComponent* audioComp = UGameplayStatics::SpawnSoundAttached(
+            ReturnNoBrownNoiseSound,            // 사운드
+            SkeletalMesh,                       // 부착할 컴포넌트
+            NAME_None,                          // 소켓 이름 (기본값)
+            FVector::ZeroVector,                // 위치 (기본값)
+            FRotator::ZeroRotator,              // 회전 (기본값)
+            EAttachLocation::KeepRelativeOffset, // 부착 규칙 (기본값)
+            true,                               // 자동 파괴 (기본값)
+            1.0f,                               // 볼륨 (기본값)
+            startTimeLength                     // 시작 시간 (지정)
+        ))
+        {
+            audioComp->FadeIn(0.1f, 1.0f, startTimeLength);
+        }
+    }
     StopAxeRotation();
 
     NumOfSpins = FMath::RoundToInt32(timelineLength / ReturnSpinRate);
