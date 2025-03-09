@@ -4,18 +4,31 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "CannonBall.generated.h"
 
 class UProjectileMovementComponent;
+class UNiagaraSystem;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCannonBallHit);
 
 UCLASS()
 class GAMEPHYSICSLAB_API ACannonBall : public AActor
 {
 	GENERATED_BODY()
-	
+
 public:	
 	// Sets default values for this actor's properties
 	ACannonBall();
+
+	UFUNCTION()
+	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnCannonBallHit OnCannonBallHit;
+
+	UPROPERTY()
+	class APirateCannon* OwnerCannon;
 
 protected:
 	// Called when the game starts or when spawned
@@ -25,9 +38,14 @@ protected:
 	USceneComponent* DefaultComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
-	UStaticMeshComponent* CannonBallComponent;
-	
+	UStaticMeshComponent* CannonBallMesh;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 	UProjectileMovementComponent* ProjectileMovement;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
+	class UCameraComponent* CannonBallCamera;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
+	UNiagaraSystem* ExplosionEffect;
 };

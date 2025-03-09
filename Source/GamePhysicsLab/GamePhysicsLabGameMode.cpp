@@ -36,6 +36,15 @@ AGamePhysicsLabGameMode::AGamePhysicsLabGameMode()
 			DefaultPawnClass = PlayerPawnBPClass.Class;
 		}
 	}
+	else if (CurrentMapName == TEXT("CannonMap"))
+	{
+		// ThirdPersonMap인 경우 GOW 캐릭터 사용
+		static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/ThirdPerson/Blueprints/BP_PirateCharacter"));
+		if (PlayerPawnBPClass.Class != NULL)
+		{
+			DefaultPawnClass = PlayerPawnBPClass.Class;
+		}
+	}
 	else
 	{
 		// 다른 맵인 경우 기본 ThirdPersonCharacter 사용

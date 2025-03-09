@@ -54,9 +54,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* ReturnAxeAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* InteractAction;
+
 public:
 	AGamePhysicsLabCharacter();
-	
 
 protected:
 
@@ -71,6 +73,8 @@ protected:
 	virtual void ThrowAxe();
 
 	virtual void ReturnAxe();
+
+	virtual void Interact();
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
