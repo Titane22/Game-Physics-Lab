@@ -5,13 +5,14 @@
 #include "CoreMinimal.h"
 #include "Weapons/PirateCannon.h"
 #include "InputActionValue.h"
+#include "Blueprint/UserWidget.h"
 
-// 전방 선언
+#include "CannonBasedF.generated.h"
+
 class UInputMappingContext;
 class UInputAction;
 class ACannonBall;
-
-#include "CannonBasedF.generated.h"
+class UNiagaraSystem;
 
 /**
  * 
@@ -25,9 +26,35 @@ protected:
 	
 	virtual void BeginPlay();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
+	UNiagaraSystem* GunSmokeEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UCameraShakeBase> ShakeClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> ReloadWidgetClass;
+
+	UPROPERTY()
+	UUserWidget* ReloadWidget;
+
+	UPROPERTY()
+	FTimerHandle ReloadTimerHandle;
+
+	UPROPERTY()
+	FTimerHandle WidgetTimerHandle;
 public:
+	UFUNCTION()
+	void UpdateReloadProgress();
+
 	void Fire();
 	
 	void Reload();
 	
+	float ReloadTime = 5.0f;
+
+	float CurrentReloadTime = 0.0f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Gameplay")
+	float ReloadProgress = 0.0f;
 };

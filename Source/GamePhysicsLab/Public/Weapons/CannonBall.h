@@ -30,6 +30,9 @@ public:
 	UPROPERTY()
 	class APirateCannon* OwnerCannon;
 
+	UFUNCTION()
+	void OnSmokeTrail();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -48,4 +51,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
 	UNiagaraSystem* ExplosionEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
+	UNiagaraSystem* SmokeTrailEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect")
+	UMaterialInterface* ImpactDecalMat;
 };

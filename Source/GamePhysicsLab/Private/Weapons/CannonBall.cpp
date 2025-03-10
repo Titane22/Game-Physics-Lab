@@ -5,6 +5,8 @@
 #include "Camera/CameraComponent.h"
 #include "Weapons/PirateCannon.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Components/DecalComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
 
@@ -64,6 +66,35 @@ void ACannonBall::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimi
 		}
 	}
 
+	if (ImpactDecalMat)
+	{
+		FRotator decalRotation = Hit.ImpactNormal.Rotation();
+		decalRotation.Pitch += 90.0f;
+
+		FVector decalSize = FVector(20.0f, 20.0f, 20.0f);
+		if (UDecalComponent* DecalComp = UGameplayStatics::SpawnDecalAtLocation(
+			GetWorld(),
+			ImpactDecalMat,
+			decalSize,
+			Hit.ImpactPoint,
+			decalRotation,
+			10.0f
+		))
+		{
+
+		}
+	}
+
+	if (USoundBase* explosionSound = LoadObject<USoundBase>(nullptr, TEXT("/Game/Audio/Cannon/SW_Explosion_Cue")))
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, TEXT("Explosion"));
+		UGameplayStatics::SpawnSoundAtLocation(
+			this,
+			explosionSound,
+			Hit.ImpactPoint
+		);
+	}
+
 	if (OwnerCannon)
 	{
 		OwnerCannon->OnCannonBallHit();
@@ -72,6 +103,33 @@ void ACannonBall::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimi
 
 	ProjectileMovement->Velocity = FVector::ZeroVector;
 	ProjectileMovement->bSimulationEnabled = false;
+
+	FTimerHandle destroyTimerHandle;
+	GetWorldTimerManager().SetTimer(
+		destroyTimerHandle,
+		[this]() {Destroy(); },
+		1.0f,
+		false
+	);
+}
+
+void ACannonBall::OnSmokeTrail()
+{
+	if (SmokeTrailEffect)
+	{
+		if (UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAttached(
+			SmokeTrailEffect,
+			CannonBallMesh,
+			NAME_None,
+			FVector::ZeroVector,
+			FRotator::ZeroRotator,
+			EAttachLocation::SnapToTarget,
+			true
+		))
+		{
+			//NiagaraComp->Add
+		}
+	}
 }
 
 // Called when the game starts or when spawned
