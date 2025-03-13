@@ -13,6 +13,8 @@ class AGamePhysicsLabGameMode : public AGameModeBase
 
 public:
 	AGamePhysicsLabGameMode();
+	
+	virtual void StartPlay() override;
 };
 
 

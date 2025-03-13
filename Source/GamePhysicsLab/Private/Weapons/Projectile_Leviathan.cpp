@@ -296,7 +296,7 @@ void AProjectile_Leviathan::UpdateAxeThrowTrace(float Value)
             SurfaceType = HitResult.PhysMaterial->SurfaceType;
         }
 
-        if (ADestructiblesMaster* DestructiblesMaster = Cast<ADestructiblesMaster>(HitResult.GetActor()))// HitResult.PhysMaterial
+        if (ADestructiblesMaster* DestructiblesMaster = Cast<ADestructiblesMaster>(HitResult.GetActor()))// TODO: HitResult.PhysMaterial
         {
             DestructiblesMaster->BreakObject(ImpactLocation, ThrowDirection);
         }
